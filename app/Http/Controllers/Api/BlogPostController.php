@@ -4,24 +4,24 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\IngredientResource;
-use App\Models\Ingredient;
+use App\Http\Resources\BlogPostResource;
+use App\Models\BlogPost;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Factory as Validator;
 
-class IngredientController extends Controller
+class BlogPostController extends Controller
 {
     public function index(Request $request)
     {
-        $ingredients = Ingredient::with(['allergens']);
+        $blogPost = BlogPost::with(['tags']);
 
-        $request->whenFilled('filters', function ($filters) use ($ingredients) {
+        $request->whenFilled('filters', function ($filters) use ($blogPost) {
             foreach($filters as $filter => $value)
             {
                 switch($filter)
                 {
-                    case 'name':
-                        $ingredients->where('name', 'Like', "%{$value}%");
+                    case 'title':
+                        $blogPost->where('title', 'Like', "%{$value}%");
                         break;
 
                     default:
@@ -30,29 +30,34 @@ class IngredientController extends Controller
             }
         });
 
-        $request->whenFilled('sortby', function ($sortby) use ($ingredients) {
+        $request->whenFilled('sortby', function ($sortby) use ($blogPost) {
             foreach($sortby as $field => $order)
             {
                 switch($field)
                 {
-                    case 'name':
-                        $ingredients->orderBy('name', $order);
+                    case 'title':
+                        $blogPost->orderBy('title', $order);
                         break;
 
                     default:
                         break;
                 }
             }
+        }, function() use ($blogPost) {
+            $blogPost->orderBy('created_at', 'DESC');
         });
         
-        return IngredientResource::collection($ingredients->paginate(config('app.pagination'))->withQueryString())->response()->getData(true);
+        return BlogPostResource::collection($blogPost->paginate(config('app.pagination'))->withQueryString())->response()->getData(true);
     }
 
     public function store(Request $request, Validator $validator)
     {
         $validate = $validator->make($request->all(), [
-            'name' => ['required','string', Rule::unique('ingredients', 'name')],
-            'measurement_unit' => ['required', 'exists:measurement_units'],
+            'title' => ['required','string', Rule::unique('blog_posts', 'title')],
+            'description' => ['required', 'string'],
+            'feature_image' => ['required', 'string'],
+            'contentHTML' => ['required', 'string'],
+            'contentJson' => ['nullable', 'json'],
         ]);
 
         if ($validate->fails()) {
@@ -63,10 +68,10 @@ class IngredientController extends Controller
         }
 
         try {
-            $ingredient = Ingredient::create($validate->validated());
+            $blogPost = BlogPost::create([...$validate->validated(), 'author_id' => $request->user()->id]);
 
             return response()->json([
-                'ingredient_id' => $ingredient->id,
+                'blog_id' => $blogPost->id,
                 'status_code' => 200
             ]);
         } catch (\Exception $e) {
@@ -77,21 +82,21 @@ class IngredientController extends Controller
         }
     }
 
-    public function show(Ingredient $ingredient)
+    public function show(BlogPost $blogPost)
     {
-        $ingredient->load(['measurementUnit']);
+        $blogPost->load(['tags']);
 
-        return response()->json([
-            'ingredient'=> new IngredientResource($ingredient),
-            'status_code' => 200
-        ], 200);
+        return new BlogPostResource($blogPost);
     }
 
-    public function update(Request $request, Ingredient $ingredient, Validator $validator)
+    public function update(Request $request, BlogPost $blogPost, Validator $validator)
     {
         $validate = $validator->make($request->all(), [
-            'name' => ['required','string', Rule::unique('ingredients', 'name')->ignore($ingredient->id)],
-            'measurement_unit' => ['required', 'exists:measurement_units'],
+            'title' => ['required','string', Rule::unique('blog_posts', 'title')->ignore($blogPost->id)],
+            'description' => ['required', 'string'],
+            'feature_image' => ['required', 'string'],
+            'contentHTML' => ['required', 'string'],
+            'contentJson' => ['nullable', 'json'],
         ]);
 
         if ($validate->fails()) {
@@ -102,12 +107,12 @@ class IngredientController extends Controller
         }
 
         try {
-            $ingredient->update($validate->validated());
+            $blogPost->update($validate->validated());
 
-            $ingredient->refresh();
-            $ingredient->load(['measurementUnit']);
+            $blogPost->refresh();
+            $blogPost->load(['tags']);
             return response()->json([
-                'ingredient' => new IngredientResource($ingredient),
+                'recipes' => new BlogPostResource($blogPost),
                 'status_code' => 200
             ]);
         } catch (\Exception $e) {
@@ -120,10 +125,10 @@ class IngredientController extends Controller
 
     public function destroy($id)
     {
-        Ingredient::findOrFail($id)->delete();
+        BlogPost::findOrFail($id)->delete();
         return response()->json([
             'data' =>[
-                'message' => "Ingredient with ID: {$id} has been deleted.",
+                'message' => "Blog with ID: {$id} has been deleted.",
                 'id' => $id
             ],
             'status_code' => 200

@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use App\Models\RecipeInstruction;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -14,7 +16,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        \App\Models\User::factory(10)->create();
+        $users = \App\Models\User::factory(10)->create();
+        foreach($users as $user)
+        {
+            \App\Models\BlogPost::factory(3)
+                ->withAuthor($user)
+                ->create();
+        }
 
         // \App\Models\User::factory()->create([
         //     'name' => 'Test User',
@@ -25,6 +33,9 @@ class DatabaseSeeder extends Seeder
             IngredientsSeeder::class,
             MeasureUnitsSeeder::class,
             RecipesSeeder::class,
+            InstructionSeeder::class,
+            RolePermissionSeeder::class,
         ]);
+
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\InstructionResource;
 use App\Http\Resources\RecipeResource;
 use App\Models\Recipe;
 use Illuminate\Validation\Rule;
@@ -13,7 +14,7 @@ class RecipeController extends Controller
 {
     public function index(Request $request)
     {
-        $recipes = Recipe::with(['ingredients', 'tags']);
+        $recipes = Recipe::with(['ingredients', 'instructions', 'tags']);
 
         $request->whenFilled('filters', function ($filters) use ($recipes) {
             foreach($filters as $filter => $value)
@@ -62,11 +63,7 @@ class RecipeController extends Controller
         $validate = $validator->make($request->all(), [
             'name' => ['required','string', Rule::unique('recipes', 'name')],
             'description' => ['required', 'string'],
-            'instructions' => ['required', 'string'],
-            'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.order' => ['required', 'integer'],
-            'ingredients.*.measurement_unit_id' => ['required', 'integer'],
-            'ingredients.*.quanitity' => ['required', 'numeric'],
+            'feature_image' => ['required', 'string'],
             'tag_ids' => ['sometimes', 'array']
         ]);
 
@@ -94,7 +91,7 @@ class RecipeController extends Controller
 
     public function show(Recipe $recipe)
     {
-        $recipe->load(['ingredients', 'tags']);
+        $recipe->load(['ingredients','instructions', 'tags']);
 
         return response()->json([
             'recipe'=> new RecipeResource($recipe),
@@ -107,11 +104,7 @@ class RecipeController extends Controller
         $validate = $validator->make($request->all(), [
             'name' => ['required','string', Rule::unique('recipes', 'name')->ignore($recipe->id)],
             'description' => ['required', 'string'],
-            'instructions' => ['required', 'string'],
-            'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.order' => ['required', 'integer'],
-            'ingredients.*.measurement_unit_id' => ['required', 'integer'],
-            'ingredients.*.quanitity' => ['required', 'numeric'],
+            'feature_image' => ['required', 'string'],
             'tag_ids' => ['sometimes', 'array']
         ]);
 
@@ -128,7 +121,7 @@ class RecipeController extends Controller
             $recipe->refresh();
             $recipe->load(['ingredients', 'tags']);
             return response()->json([
-                'allergen' => new RecipeResource($recipe),
+                'recipes' => new RecipeResource($recipe),
                 'status_code' => 200
             ]);
         } catch (\Exception $e) {
@@ -149,5 +142,42 @@ class RecipeController extends Controller
             ],
             'status_code' => 200
         ], 200);
+    }
+
+    public function showInstructions(Request $request, Recipe $recipe)
+    {
+        $instructions = $recipe->instructions;
+
+        return InstructionResource::collection($instructions);
+    }
+
+    public function updateInstructions(Request $request, Recipe $recipe, Validator $validator)
+    {
+        $validate = $validator->make($request->all(), [
+            'instructions' => ['required','array'],
+            'instructions.instruction' => ['required', 'string'],
+            'instructions.order' => ['required', 'numeric']
+        ]);
+
+        if ($validate->fails()) {
+            return response()->json([
+                'error' => implode(', ', $validate->errors()->all()),
+                'status_code' => 400
+            ], 400);
+        }
+            $recipe->sync($request->input('instructions'));
+
+            $instructions = $recipe->instructions();
+
+            return InstructionResource::collection($instructions);
+        try {
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'status_code' => 422
+            ], 422);
+        }
+ 
     }
 }

@@ -18,10 +18,10 @@ class RecipeFactory extends Factory
     {
         return [
             'name' => fake()->words(3, true),
-            'instructions' => fake()->words(12, true),
             'description' => fake()->words(8, true),
             'time_estimate' => fake()->numberBetween(15, 120),
-            'feature_image' => fake()->imageUrl()
+            'servings' => fake()->numberBetween(2,8),
+            'feature_image' => fake()->imageUrl(),
         ];
     }
 }

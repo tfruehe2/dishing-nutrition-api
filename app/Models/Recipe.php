@@ -14,7 +14,8 @@ class Recipe extends Model implements HasMedia
     protected $fillable = [
         'name',
         'description',
-        'instructions',
+        'servings',
+        'time_estimate',
         'video_id',
         'feature_image'
     ];
@@ -23,6 +24,11 @@ class Recipe extends Model implements HasMedia
     {
         return $this->belongsToMany(Ingredient::class, 'ingredients_recipes')
             ->withPivot(['order', 'measurement_unit_id', 'quantity']);
+    }
+
+    public function instructions()
+    {
+        return $this->hasMany(RecipeInstruction::class)->orderBy('order');
     }
 
     public function tags()
